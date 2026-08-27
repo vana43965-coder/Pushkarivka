@@ -435,9 +435,67 @@ export class World {
     }
     ctx.stroke();
   }
+_drawRoadMarkings(ctx, view) {
+  ctx.save();
 
-  _drawRoadMarkings(ctx, view) {
-    ctx.save();
+  // Біла дорожня розмітка.
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.setLineDash([26, 22]);
+
+  const tile = this.tile;
+
+  // Пунктир прив'язаний до СВІТОВИХ координат дороги,
+  // а не до положення камери.
+  const dashLength = 26 + 22;
+
+  // Горизонтальні дороги.
+  for (const [rA, rB] of H_ROADS) {
+    const y = rB * tile;
+
+    if (y < view.y - 20 || y > view.y + view.h + 20) continue;
+
+    // Фаза пунктиру залежить від світової X-координати.
+    ctx.lineDashOffset = -((view.x * 1) % dashLength);
+
+    ctx.beginPath();
+    ctx.moveTo(Math.max(0, view.x - 40), y);
+    ctx.lineTo(
+      Math.min(
+        ROAD_END_COL * tile + tile,
+        view.x + view.w + 40
+      ),
+      y
+    );
+    ctx.stroke();
+  }
+
+  // Вертикальні дороги.
+  for (const [cA, cB] of V_ROADS) {
+    const x = cB * tile;
+
+    if (x < view.x - 20 || x > view.x + view.w + 20) continue;
+
+    // Фаза пунктиру залежить від світової Y-координати.
+    ctx.lineDashOffset = -((view.y * 1) % dashLength);
+
+    ctx.beginPath();
+    ctx.moveTo(x, Math.max(0, view.y - 40));
+    ctx.lineTo(
+      x,
+      Math.min(this.height, view.y + view.h + 40)
+    );
+    ctx.stroke();
+  }
+
+  // Повертаємо стандартне значення.
+  ctx.lineDashOffset = 0;
+
+  ctx.restore();
+}
+  
+   
     ctx.strokeStyle = CONFIG.COLORS.ROAD_LINE;
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
