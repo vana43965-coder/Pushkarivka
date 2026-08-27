@@ -1,159 +1,48 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Pushkarivka – Mini‑гра</title>
-<style>
-  html, body { margin:0; padding:0; height:100%; overflow:hidden; }
-  canvas { display:block; width:100%; height:100%; background:#1d1d1d; }
-</style>
+  <meta charset="utf-8">
+  <title>Pushkarivka</title>
+
+  <!-- Fill the whole phone screen, including behind the notch, and stop the
+       page from being pinch-zoomed or double-tap-zoomed while playing. -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+
+  <!-- Lets the game run without Safari's browser chrome when added to the
+       home screen. -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#7ED957">
+
+  <!-- A little sun, inline so there is no extra file to load. -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='%23FFD93D'/></svg>">
+
+  <!-- All paths are relative (no leading slash) so the game works from a
+       GitHub Pages sub-folder such as /taras-town/. -->
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<canvas id="game"></canvas>
-<script>
-/* ───────────────────────────────────────────────────────
-   ГЛАВНИЙ КОД – ІГРА НА CANVAS
-   ----------------------------------------------- */
 
-// ── CONFIGURATION ─────────────────────────────────────
-const CONFIG = {
-  // Розміри кадрів sprite‑шоту (покажіть своє, якщо інше)
-  spriteWidth: 64,   // Ширина одного кадру
-  spriteHeight: 64,  // Висота одного кадру
-  frameRate: 8,      // Кадри в секунду (чем менше – більш «швидко»)
-  speed: 150,        // Пікселі за секунду
-  // URL до sprite‑шоту: 4 кадри (ліва, спереду, права, зворот)
-  spriteSrc: 'player.png', // <‑ Змініть це, якщо маєте інший файл
-  // Якщо просто хочете прямокутник, зберігайте `useSprite: false`
-  useSprite: true
-};
+  <!-- The game itself -->
+  <canvas id="game"></canvas>
 
-// ── INITIAL SETUP ─────────────────────────────────────
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
+  <!-- Tap-to-start. The tap is what lets us go full screen on a phone. -->
+  <div id="start-screen">
+    <div class="panel">
+      <div class="sun"></div>
+      <h1>Taras Town</h1>
+      <button id="start-button" aria-label="Play">▶</button>
+    </div>
+  </div>
 
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
+  <!-- Shown automatically by CSS whenever the phone is held upright. -->
+  <div id="rotate-screen">
+    <div class="phone"></div>
+    <p>↻</p>
+  </div>
 
-// ── PLAYER OBJECT ─────────────────────────────────────
-const player = {
-  x: canvas.width / 2,
-  y: canvas.height / 2,
-  w: CONFIG.spriteWidth,
-  h: CONFIG.spriteHeight,
-  vx: 0,
-  vy: 0,
-  dir: 'down',           // 'up', 'down', 'left', 'right'
-  frameIndex: 0,
-  timeSinceLastFrame: 0
-};
-
-// ── SPRITE HANDLING ───────────────────────────────────
-let spriteImage = new Image();
-if (CONFIG.useSprite) {
-  spriteImage.src = CONFIG.spriteSrc;
-  spriteImage.onload = () => {
-    // Перезавантажимо гру після завантаження зображення
-    requestAnimationFrame(mainLoop);
-  };
-} else {
-  // Якщо не sprite, запускаємо гру одразу
-  requestAnimationFrame(mainLoop);
-}
-
-// ── INPUT HANDLING ─────────────────────────────────────
-const keys = {};
-window.addEventListener('keydown', e => { keys[e.key] = true; });
-window.addEventListener('keyup',   e => { keys[e.key] = false; });
-
-function updatePlayer(delta) {
-  // Обчислюємо швидкість
-  let speed = CONFIG.speed * delta;
-  let vx = 0, vy = 0;
-
-  if (keys['ArrowLeft'] || keys['a']) { vx -= speed; player.dir = 'left'; }
-  if (keys['ArrowRight'] || keys['d']) { vx += speed; player.dir = 'right'; }
-  if (keys['ArrowUp'] || keys['w']) { vy -= speed; player.dir = 'up'; }
-  if (keys['ArrowDown'] || keys['s']) { vy += speed; player.dir = 'down'; }
-
-  player.vx = vx;
-  player.vy = vy;
-}
-
-// ── ANIMATION ───────────────────────────────────────────
-function updateAnimation(delta) {
-  const fps = CONFIG.frameRate;
-  if (!CONFIG.useSprite) return;
-
-  player.timeSinceLastFrame += delta;
-  if (player.timeSinceLastFrame >= 1 / fps) {
-    player.timeSinceLastFrame -= 1 / fps;
-    player.frameIndex = (player.frameIndex + 1) % 4; // 4 кадри
-  }
-}
-
-// ── RENDERING ───────────────────────────────────────────
-function render() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Приклад фону: просто колір. Замініть на зображення, якщо хочете.
-  // ctx.fillStyle = '#222';
-  // ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Друк героя
-  if (CONFIG.useSprite && spriteImage.complete) {
-    const sx = player.frameIndex * CONFIG.spriteWidth;
-    const sy = {
-      'down': 0,
-      'left': CONFIG.spriteHeight,
-      'up': 2 * CONFIG.spriteHeight,
-      'right': 3 * CONFIG.spriteHeight
-    }[player.dir];
-    ctx.drawImage(spriteImage,
-      sx, sy, CONFIG.spriteWidth, CONFIG.spriteHeight,
-      player.x - CONFIG.spriteWidth/2, player.y - CONFIG.spriteHeight/2,
-      CONFIG.spriteWidth, CONFIG.spriteHeight);
-  } else {
-    // Якщо без sprite, малюємо простий прямокутник
-    ctx.fillStyle = '#ff4444';
-    ctx.fillRect(player.x - player.w/2, player.y - player.h/2, player.w, player.h);
-  }
-
-  // Додатковий текст (позиція, FPS тощо)
-  ctx.fillStyle = 'white';
-  ctx.font = '16px Arial';
-  ctx.fillText(`Pos: ${Math.round(player.x)}, ${Math.round(player.y)}`, 10, 20);
-}
-
-// ── MAIN LOOP ───────────────────────────────────────────
-let lastTimestamp = null;
-function mainLoop(timestamp) {
-  if (!lastTimestamp) lastTimestamp = timestamp;
-  const delta = (timestamp - lastTimestamp) / 1000; // у секундах
-  lastTimestamp = timestamp;
-
-  updatePlayer(delta);
-  updateAnimation(delta);
-
-  // Переміщення героя
-  player.x += player.vx;
-  player.y += player.vy;
-
-  // Обмеження в межах екрана
-  const halfW = CONFIG.spriteWidth / 2;
-  const halfH = CONFIG.spriteHeight / 2;
-  if (player.x < halfW) player.x = halfW;
-  if (player.x > canvas.width - halfW) player.x = canvas.width - halfW;
-  if (player.y < halfH) player.y = halfH;
-  if (player.y > canvas.height - halfH) player.y = canvas.height - halfH;
-
-  render();
-  requestAnimationFrame(mainLoop);
-}
-</script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
