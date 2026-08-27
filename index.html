@@ -2,27 +2,158 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<title>Моя Mini‑гра</title>
+<title>Pushkarivka – Mini‑гра</title>
 <style>
-  body { margin:0; overflow:hidden; background:#111; }
-  canvas { display:block; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden; }
+  canvas { display:block; width:100%; height:100%; background:#1d1d1d; }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <script>
+/* ───────────────────────────────────────────────────────
+   ГЛАВНИЙ КОД – ІГРА НА CANVAS
+   ----------------------------------------------- */
+
+// ── CONFIGURATION ─────────────────────────────────────
+const CONFIG = {
+  // Розміри кадрів sprite‑шоту (покажіть своє, якщо інше)
+  spriteWidth: 64,   // Ширина одного кадру
+  spriteHeight: 64,  // Висота одного кадру
+  frameRate: 8,      // Кадри в секунду (чем менше – більш «швидко»)
+  speed: 150,        // Пікселі за секунду
+  // URL до sprite‑шоту: 4 кадри (ліва, спереду, права, зворот)
+  spriteSrc: 'player.png', // <‑ Змініть це, якщо маєте інший файл
+  // Якщо просто хочете прямокутник, зберігайте `useSprite: false`
+  useSprite: true
+};
+
+// ── INITIAL SETUP ─────────────────────────────────────
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
-function resize() {
+function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 }
-window.addEventListener('resize', resize);
-resize();
 
-// --- ПЛАН ДЛЯ ТЕСТІВ ------------------------------------
+// ── PLAYER OBJECT ─────────────────────────────────────
+const player = {
+  x: canvas.width / 2,
+  y: canvas.height / 2,
+  w: CONFIG.spriteWidth,
+  h: CONFIG.spriteHeight,
+  vx: 0,
+  vy: 0,
+  dir: 'down',           // 'up', 'down', 'left', 'right'
+  frameIndex: 0,
+  timeSinceLastFrame: 0
+};
+
+// ── SPRITE HANDLING ───────────────────────────────────
+let spriteImage = new Image();
+if (CONFIG.useSprite) {
+  spriteImage.src = CONFIG.spriteSrc;
+  spriteImage.onload = () => {
+    // Перезавантажимо гру після завантаження зображення
+    requestAnimationFrame(mainLoop);
+  };
+} else {
+  // Якщо не sprite, запускаємо гру одразу
+  requestAnimationFrame(mainLoop);
+}
+
+// ── INPUT HANDLING ─────────────────────────────────────
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.key] = true; });
+window.addEventListener('keyup',   e => { keys[e.key] = false; });
+
+function updatePlayer(delta) {
+  // Обчислюємо швидкість
+  let speed = CONFIG.speed * delta;
+  let vx = 0, vy = 0;
+
+  if (keys['ArrowLeft'] || keys['a']) { vx -= speed; player.dir = 'left'; }
+  if (keys['ArrowRight'] || keys['d']) { vx += speed; player.dir = 'right'; }
+  if (keys['ArrowUp'] || keys['w']) { vy -= speed; player.dir = 'up'; }
+  if (keys['ArrowDown'] || keys['s']) { vy += speed; player.dir = 'down'; }
+
+  player.vx = vx;
+  player.vy = vy;
+}
+
+// ── ANIMATION ───────────────────────────────────────────
+function updateAnimation(delta) {
+  const fps = CONFIG.frameRate;
+  if (!CONFIG.useSprite) return;
+
+  player.timeSinceLastFrame += delta;
+  if (player.timeSinceLastFrame >= 1 / fps) {
+    player.timeSinceLastFrame -= 1 / fps;
+    player.frameIndex = (player.frameIndex + 1) % 4; // 4 кадри
+  }
+}
+
+// ── RENDERING ───────────────────────────────────────────
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Приклад фону: просто колір. Замініть на зображення, якщо хочете.
+  // ctx.fillStyle = '#222';
+  // ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Друк героя
+  if (CONFIG.useSprite && spriteImage.complete) {
+    const sx = player.frameIndex * CONFIG.spriteWidth;
+    const sy = {
+      'down': 0,
+      'left': CONFIG.spriteHeight,
+      'up': 2 * CONFIG.spriteHeight,
+      'right': 3 * CONFIG.spriteHeight
+    }[player.dir];
+    ctx.drawImage(spriteImage,
+      sx, sy, CONFIG.spriteWidth, CONFIG.spriteHeight,
+      player.x - CONFIG.spriteWidth/2, player.y - CONFIG.spriteHeight/2,
+      CONFIG.spriteWidth, CONFIG.spriteHeight);
+  } else {
+    // Якщо без sprite, малюємо простий прямокутник
+    ctx.fillStyle = '#ff4444';
+    ctx.fillRect(player.x - player.w/2, player.y - player.h/2, player.w, player.h);
+  }
+
+  // Додатковий текст (позиція, FPS тощо)
+  ctx.fillStyle = 'white';
+  ctx.font = '16px Arial';
+  ctx.fillText(`Pos: ${Math.round(player.x)}, ${Math.round(player.y)}`, 10, 20);
+}
+
+// ── MAIN LOOP ───────────────────────────────────────────
+let lastTimestamp = null;
+function mainLoop(timestamp) {
+  if (!lastTimestamp) lastTimestamp = timestamp;
+  const delta = (timestamp - lastTimestamp) / 1000; // у секундах
+  lastTimestamp = timestamp;
+
+  updatePlayer(delta);
+  updateAnimation(delta);
+
+  // Переміщення героя
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // Обмеження в межах екрана
+  const halfW = CONFIG.spriteWidth / 2;
+  const halfH = CONFIG.spriteHeight / 2;
+  if (player.x < halfW) player.x = halfW;
+  if (player.x > canvas.width - halfW) player.x = canvas.width - halfW;
+  if (player.y < halfH) player.y = halfH;
+  if (player.y > canvas.height - halfH) player.y = canvas.height - halfH;
+
+  render();
+  requestAnimationFrame(mainLoop);
+}
 </script>
-  <p>првыт Ваня</p>
 </body>
 </html>
